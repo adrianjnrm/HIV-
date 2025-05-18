@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TeleHealth Chatbot</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #e9eff1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .container {
+      background: white;
+      width: 100%;
+      max-width: 500px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    header {
+      background: #2b6777;
+      color: white;
+      padding: 16px;
+      text-align: center;
+      font-size: 1.2rem;
+    }
+
+    #chatbox {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+      background: #f7f9fa;
+    }
+
+    .user-msg, .bot-msg {
+      margin: 8px 0;
+      padding: 10px 14px;
+      border-radius: 18px;
+      max-width: 80%;
+      line-height: 1.4;
+      position: relative;
+    }
+
+    .user-msg {
+      background: #d1e7dd;
+      align-self: flex-end;
+      color: #1b4332;
+      text-align: right;
+    }
+
+    .bot-msg {
+      background: #fff3cd;
+      align-self: flex-start;
+      color: #856404;
+    }
+
+    .timestamp {
+      font-size: 0.75rem;
+      color: #999;
+      margin-top: 4px;
+      display: block;
+    }
+
+    form {
+      display: flex;
+      padding: 12px;
+      background: #f1f3f5;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    select, input, button {
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 1rem;
+    }
+
+    input {
+      flex: 1;
+    }
+
+    button {
+      cursor: pointer;
+      background-color: #2b6777;
+      color: white;
+      border: none;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #1d4f5c;
+    }
+
+    #mic {
+      background-color: #ff6b6b;
+    }
+
+    #mic:hover {
+      background-color: #c53030;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>TeleHealth Symptom Checker</header>
+    <div id="chatbox"></div>
+    <form id="chat-form">
+      <select id="language">
+        <option value="en">English</option>
+        <option value="sw">Swahili</option>
+      </select>
+      <input type="text" id="user-input" placeholder="Describe your symptoms..." required />
+      <button type="submit">Send</button>
+      <button type="button" id="mic">🎤</button>
+    </form>
+  </div>
+
+  <script>
+    const form = document.getElementById("chat-form");
+    const input = document.getElementById("user-input");
+    const chatbox = document.getElementById("chatbox");
+    const language = document.getElementById("language");
+    const micButton = document.getElementById("mic");
+
+    function appendMessage(message, sender) {
+      const div = document.createElement("div");
+      const timestamp = document.createElement("span");
+      const now = new Date().toLocaleTimeString();
+      div.className = sender + "-msg";
+      div.textContent = message;
+      timestamp.className = "timestamp";
+      timestamp.textContent = now;
+      div.appendChild(document.createElement("br"));
+      div.appendChild(timestamp);
+      chatbox.appendChild(div);
+      chatbox.scrollTop = chatbox.scrollHeight;
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const userText = input.value;
+      const selectedLang = language.value;
+      appendMessage(userText, "user");
+      input.value = "";
+
+      const res = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userText, lang: selectedLang })
+      });
+
+      const data = await res.json();
+      appendMessage(data.reply, "bot");
+    });
+
+    if ('webkitSpeechRecognition' in window) {
+      const recognition = new webkitSpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      micButton.addEventListener("click", () => {
+        const selectedLang = language.value;
+        recognition.lang = selectedLang === 'sw' ? 'sw-TZ' : 'en-US';
+        recognition.start();
+      });
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        input.value = transcript;
+        form.dispatchEvent(new Event("submit"));
+      };
+
+      recognition.onerror = (event) => {
+        alert("Speech recognition error: " + event.error);
+      };
+    } else {
+      micButton.disabled = true;
+      micButton.title = "Speech recognition not supported in this browser";
+    }
+  </script>
+</body>
+</html>
